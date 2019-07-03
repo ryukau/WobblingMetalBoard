@@ -86,8 +86,8 @@ class UI {
       6, "Render Settings")
     this.checkboxNormalize = new Checkbox(this.divMiscControls.element,
       "Normalize", true, () => { this.refresh() })
-    // this.checkboxResample = new Checkbox(this.divMiscControls.element,
-    //   "4x Sampling", false, () => { this.refresh() })
+    this.checkboxResample = new Checkbox(this.divMiscControls.element,
+      "4x Sampling", false, () => { this.refresh() })
     this.inputLength = new NumberInputLog(this.divMiscControls.element,
       "Length", 1, 0.02, 16, 0.01, () => { this.refresh() })
     this.inputSeed = new NumberInput(this.divMiscControls.element,
@@ -156,7 +156,7 @@ class UI {
     return {
       channel: channel,
       sampleRate: this.audioContext.sampleRate,
-      // overSampling: this.checkboxResample.value ? 4 : 1,
+      overSampling: this.checkboxResample.value ? 4 : 1,
       length: this.inputLength.value,
       seed: this.inputSeed.value,
       ampAttack: this.inputAmpAttack.value,

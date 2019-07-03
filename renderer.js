@@ -55,10 +55,10 @@ class PolyExpEnvelope {
 
 function makeLowpassWindow(win, cutoff) {
   // cutoff is [0, 1].
-  var halfWinPoint = (win.length % 2 === 0 ? win.length - 1 : win.length) / 2
+  var half = (win.length % 2 === 0 ? win.length - 1 : win.length) / 2
   var omega_c = 2 * Math.PI * cutoff
   for (var i = 0; i < win.length; ++i) {
-    var n = i - halfWinPoint
+    var n = i - half
     win[i] *= (n === 0) ? 1 : Math.sin(omega_c * n) / (Math.PI * n)
   }
   return win
@@ -66,7 +66,7 @@ function makeLowpassWindow(win, cutoff) {
 
 function downSampling(sound, overSampling) {
   var lowpass = kaiserWindow.slice()
-  lowpass = makeLowpassWindow(lowpass, 0.25 / overSampling)
+  lowpass = makeLowpassWindow(lowpass, 0.5 / overSampling)
 
   var reduced = new Array(Math.floor(sound.length / overSampling)).fill(0)
   for (var i = 0; i < reduced.length; ++i) {
@@ -75,7 +75,6 @@ function downSampling(sound, overSampling) {
       var index = start + j
       if (index >= sound.length) break
       reduced[i] += sound[index] * lowpass[j]
-      break
     }
   }
   return reduced
@@ -83,7 +82,7 @@ function downSampling(sound, overSampling) {
 
 onmessage = (event) => {
   var params = event.data
-  var sampleRate = params.sampleRate //* params.overSampling
+  var sampleRate = params.sampleRate * params.overSampling
   var rnd = new MersenneTwister(params.seed + params.channel)
 
   var sound = new Array(Math.floor(sampleRate * params.length)).fill(0)
@@ -151,11 +150,9 @@ onmessage = (event) => {
     sound[i] *= aEnv
   }
 
-  // if (params.overSampling > 1) {
-  //   sound = downSampling(sound, params.overSampling)
-  // }
+  if (params.overSampling > 1) {
+    sound = downSampling(sound, params.overSampling)
+  }
 
   postMessage(sound)
 }
-
-// TODO: UI を項目ごとに分ける。
