@@ -97,6 +97,7 @@ onmessage = (event) => {
   var interval = Math.floor(params.interval * sampleRate)
   var bounceStart = 0
   for (var n = 0; n < params.nBounce; ++n) {
+    // Construct amplitude envelope.
     var aEnv = new PolyExpEnvelope(
       sampleRate, params.bendAttack, params.bendCurve / params.ampAttack)
     var aInit = params.bounceAmpInit * params.bounceAmp ** n
@@ -106,6 +107,7 @@ onmessage = (event) => {
       ampEnv[i] += aInit * amp
     }
 
+    // Construct pitch envelope.
     var pEnv = new PolyExpEnvelope(
       sampleRate, params.bendAttack, params.bendCurve)
     var pInit = params.bounceBendInit * params.bounceBend ** n
@@ -118,6 +120,7 @@ onmessage = (event) => {
     bounceStart += interval * (1 + params.wander * (rnd.random() - 1))
   }
 
+  // Initialize harmonics parameters.
   var harmonics = []
   for (var n = 0; n < params.nHarmonics; ++n) {
     harmonics.push({
@@ -128,6 +131,7 @@ onmessage = (event) => {
     })
   }
 
+  // Render sound.
   var omega_per_freq = TWO_PI / sampleRate
   for (var i = 0; i < sound.length; ++i) {
     for (ha of harmonics) {
