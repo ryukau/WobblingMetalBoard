@@ -32,12 +32,17 @@ class PolyExpEnvelope {
     var a = attack * curve
     var b = curve
 
+    this.attack = attack
     this.a = a
     this.peak = (a / b) ** a * Math.exp(-a)
     this.gamma = Math.exp(-b / sampleRate)
     this.tick = 1 / sampleRate
 
     this.reset()
+  }
+
+  isReleasing() {
+    return this.t >= this.attack
   }
 
   reset() {
@@ -87,67 +92,49 @@ onmessage = (event) => {
 
   var sound = new Array(Math.floor(sampleRate * params.length)).fill(0)
 
-  var ampEnv = []
-  var pitchEnv = []
-
-  for (var n = 0; n < params.nBounce; ++n) {
-    ampEnv.push(
-      new PolyExpEnvelope(
-        sampleRate,
-        params.bendAttack,
-        params.bendCurve / params.ampAttack
-      )
-    )
-    pitchEnv.push(
-      new PolyExpEnvelope(
-        sampleRate,
-        params.bendAttack,
-        params.bendCurve
-      )
-    )
-  }
-
-  var harmoAmp = new Array(params.nHarmonics)
-  var bend = new Array(params.nHarmonics)
-  var f0 = new Array(params.nHarmonics)
-  for (var n = 0; n < params.nHarmonics; ++n) {
-    harmoAmp[n] = params.harmonicsAmp ** n
-    bend[n] = params.bendAmount * params.harmonicsBend ** n
-    f0[n] = params.baseFrequency * (n + 1)
-  }
-
-  var bounceAmp = new Array(params.nBounce)
-  var bounceBend = new Array(params.nBounce)
-  for (var n = 0; n < params.nBounce; ++n) {
-    bounceAmp[n] = params.bounceAmpInit * params.bounceAmp ** n
-    bounceBend[n] = params.bounceBendInit * params.bounceBend ** n
-  }
-
-  var bounce = 1
+  var ampEnv = new Array(sound.length).fill(0)
+  var pitchEnv = new Array(sound.length).fill(0)
   var interval = Math.floor(params.interval * sampleRate)
-  var nextBounce = interval
+  var bounceStart = 0
+  for (var n = 0; n < params.nBounce; ++n) {
+    var aEnv = new PolyExpEnvelope(
+      sampleRate, params.bendAttack, params.bendCurve / params.ampAttack)
+    var aInit = params.bounceAmpInit * params.bounceAmp ** n
+    for (var i = Math.floor(bounceStart); i < sound.length; ++i) {
+      var amp = aEnv.process()
+      if (aEnv.isReleasing() && amp < 1e-5) break
+      ampEnv[i] += aInit * amp
+    }
 
-  var phase = new Array(params.nHarmonics).fill(0)
+    var pEnv = new PolyExpEnvelope(
+      sampleRate, params.bendAttack, params.bendCurve)
+    var pInit = params.bounceBendInit * params.bounceBend ** n
+    for (var i = Math.floor(bounceStart); i < sound.length; ++i) {
+      var pitch = pEnv.process()
+      if (pEnv.isReleasing() && pitch < 1e-5) break
+      pitchEnv[i] += pInit * pitch
+    }
+
+    bounceStart += interval * (1 + params.wander * (rnd.random() - 1))
+  }
+
+  var harmonics = []
+  for (var n = 0; n < params.nHarmonics; ++n) {
+    harmonics.push({
+      amp: params.harmonicsAmp ** n,
+      bend: params.bendAmount * params.harmonicsBend ** n,
+      f0: params.baseFrequency * (n + 1),
+      phase: 0,
+    })
+  }
+
   var omega_per_freq = TWO_PI / sampleRate
-
   for (var i = 0; i < sound.length; ++i) {
-    if (bounce < params.nBounce && i >= nextBounce) {
-      bounce += 1
-      nextBounce += interval * (1 + params.wander * (rnd.random() - 1))
+    for (ha of harmonics) {
+      ha.phase += omega_per_freq * (ha.f0 + ha.bend * pitchEnv[i])
+      sound[i] += ha.amp * Math.sin(ha.phase)
     }
-
-    var aEnv = ampEnv[0].process()
-    var pEnv = pitchEnv[0].process()
-    for (var n = 1; n < bounce; ++n) {
-      aEnv += bounceAmp[n] * ampEnv[n].process()
-      pEnv += bounceBend[n] * pitchEnv[n].process()
-    }
-
-    for (var n = 0; n < params.nHarmonics; ++n) {
-      phase[n] += omega_per_freq * (f0[n] + bend[n] * pEnv)
-      sound[i] += harmoAmp[n] * Math.sin(phase[n])
-    }
-    sound[i] *= aEnv
+    sound[i] *= ampEnv[i]
   }
 
   if (params.overSampling > 1) {
